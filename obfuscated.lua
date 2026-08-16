@@ -1,5 +1,5 @@
 -- ==========================================
--- 黑橘科技風 Hub UI (已移除調色盤)
+-- 黑橘科技風 Hub UI (手機/觸控雙平台 + 圖片圓角修復版)
 -- ==========================================
 
 local TweenService = game:GetService("TweenService")
@@ -43,8 +43,8 @@ function Hub.new(hubName, iconId)
     
     local main = Instance.new("Frame")
     main.Name = "MainFrame"
-    main.Size = UDim2.new(0, 520, 0, 360)
-    main.Position = UDim2.new(0.5, -260, 0.5, -140)
+    main.Size = UDim2.new(0, 480, 0, 320)
+    main.Position = UDim2.new(0.5, -240, 0.5, -160)
     main.BackgroundColor3 = STYLE.BgColor
     main.BackgroundTransparency = 1
     main.BorderSizePixel = 0
@@ -61,6 +61,7 @@ function Hub.new(hubName, iconId)
     mainStroke.Transparency = 1
     mainStroke.Parent = main
 
+    -- 背景圖片 (新增圓角)
     local bgImage = Instance.new("ImageLabel")
     bgImage.Name = "BgImage"
     bgImage.Size = UDim2.new(1, 0, 1, 0)
@@ -70,6 +71,7 @@ function Hub.new(hubName, iconId)
     bgImage.ImageTransparency = 1
     bgImage.ZIndex = 1
     bgImage.Parent = main
+    Instance.new("UICorner", bgImage).CornerRadius = CORNER_RADIUS
 
     local introContainer = Instance.new("Frame")
     introContainer.Size = UDim2.new(1, 0, 1, 0)
@@ -77,6 +79,7 @@ function Hub.new(hubName, iconId)
     introContainer.ZIndex = 20
     introContainer.Parent = main
 
+    -- 動畫圖標 (新增圓角)
     local introIcon = Instance.new("ImageLabel")
     introIcon.Size = UDim2.new(0, 50, 0, 50)
     introIcon.Position = UDim2.new(0.5, -25, 0.38, -25)
@@ -85,6 +88,7 @@ function Hub.new(hubName, iconId)
     introIcon.ImageTransparency = 1
     introIcon.ZIndex = 21
     introIcon.Parent = introContainer
+    Instance.new("UICorner", introIcon).CornerRadius = CORNER_RADIUS
 
     local introTitle = Instance.new("TextLabel")
     introTitle.Size = UDim2.new(1, 0, 0, 25)
@@ -164,6 +168,7 @@ function Hub.new(hubName, iconId)
         end
     end)
 
+    -- 最小化按鈕圖標 (確保圓角)
     local miniIcon = Instance.new("ImageButton")
     miniIcon.Size = UDim2.new(1, 0, 1, 0)
     miniIcon.BackgroundTransparency = 1
@@ -210,7 +215,7 @@ function Hub.new(hubName, iconId)
     Instance.new("UICorner", minBtn).CornerRadius = CORNER_RADIUS
 
     local sidebar = Instance.new("Frame")
-    sidebar.Size = UDim2.new(0, 130, 1, -40)
+    sidebar.Size = UDim2.new(0, 120, 1, -40)
     sidebar.Position = UDim2.new(0, 0, 0, 40)
     sidebar.BackgroundColor3 = STYLE.SidebarColor
     sidebar.BackgroundTransparency = 1
@@ -230,8 +235,8 @@ function Hub.new(hubName, iconId)
     sidePad.Parent = sidebar
     
     local contentArea = Instance.new("Frame")
-    contentArea.Size = UDim2.new(1, -130, 1, -40)
-    contentArea.Position = UDim2.new(0, 130, 0, 40)
+    contentArea.Size = UDim2.new(1, -120, 1, -40)
+    contentArea.Position = UDim2.new(0, 120, 0, 40)
     contentArea.BackgroundTransparency = 1
     contentArea.ZIndex = 3
     contentArea.Parent = main
@@ -246,7 +251,7 @@ function Hub.new(hubName, iconId)
 
     task.spawn(function()
         TweenService:Create(main, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Position = UDim2.new(0.5, -260, 0.5, -180),
+            Position = UDim2.new(0.5, -240, 0.5, -160),
             BackgroundTransparency = 0
         }):Play()
         TweenService:Create(mainStroke, TweenInfo.new(0.4), {Transparency = 0.3}):Play()
@@ -290,7 +295,7 @@ function Hub.new(hubName, iconId)
             miniIcon.Visible = true
             miniIcon.ImageTransparency = 0
             TweenService:Create(main, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, 40, 0, 40)
+                Size = UDim2.new(0, 45, 0, 45)
             }):Play()
         else
             miniIcon.Visible = false
@@ -307,7 +312,7 @@ function Hub.new(hubName, iconId)
             particleContainer.Visible = true
 
             TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, 520, 0, 360)
+                Size = UDim2.new(0, 480, 0, 320)
             }):Play()
 
             TweenService:Create(topBar, TweenInfo.new(0.2), {BackgroundTransparency = 0.2}):Play()
@@ -321,47 +326,36 @@ function Hub.new(hubName, iconId)
     minBtn.MouseButton1Click:Connect(toggleMinimize)
     miniIcon.MouseButton1Click:Connect(toggleMinimize)
 
-    UserInputService.InputBegan:Connect(function(input, gpe)
-        if not gpe and input.KeyCode == Enum.KeyCode.RightControl then
-            self.IsVisible = not self.IsVisible
-            main.Visible = self.IsVisible
-        end
-    end)
-    
+    -- 通用拖拽機制
     local dragging, dragStart, startPos
-    local function updateDrag(input)
-        local delta = input.Position - dragStart
-        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    local function bindDrag(targetFrame)
+        targetFrame.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = main.Position
+            end
+        end)
     end
 
-    topBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = main.Position
-        end
-    end)
-    
-    miniIcon.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = main.Position
-        end
-    end)
+    bindDrag(topBar)
+    bindDrag(miniIcon)
 
     UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            updateDrag(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
 
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    local function stopDrag(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
-    end)
-    
+    end
+
+    UserInputService.InputEnded:Connect(stopDrag)
+
     return self
 end
 
@@ -370,7 +364,7 @@ function Hub:AddTab(tabName)
     tabObj.Hub = self
     
     local tabBtn = Instance.new("TextButton")
-    tabBtn.Size = UDim2.new(1, 0, 0, 32)
+    tabBtn.Size = UDim2.new(1, 0, 0, 34)
     tabBtn.BackgroundColor3 = STYLE.SidebarColor
     tabBtn.BackgroundTransparency = 0.2
     tabBtn.Text = tabName
@@ -386,7 +380,7 @@ function Hub:AddTab(tabName)
     page.Size = UDim2.new(1, 0, 1, 0)
     page.BackgroundTransparency = 1
     page.Visible = false
-    page.ScrollBarThickness = 3
+    page.ScrollBarThickness = 4
     page.ScrollBarImageColor3 = STYLE.AccentColor
     page.ZIndex = 4
     page.Parent = self.ContentArea
@@ -451,13 +445,6 @@ function Hub:AddTab(tabName)
         btn.Parent = page
         
         Instance.new("UICorner", btn).CornerRadius = CORNER_RADIUS
-        
-        btn.MouseEnter:Connect(function()
-            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = STYLE.CardHover}):Play()
-        end)
-        btn.MouseLeave:Connect(function()
-            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = STYLE.CardColor}):Play()
-        end)
         btn.MouseButton1Click:Connect(function()
             if callback then callback() end
         end)
@@ -554,8 +541,8 @@ function Hub:AddTab(tabName)
         valLabel.Parent = sliderFrame
 
         local sliderBg = Instance.new("Frame")
-        sliderBg.Size = UDim2.new(1, -20, 0, 6)
-        sliderBg.Position = UDim2.new(0, 10, 0, 32)
+        sliderBg.Size = UDim2.new(1, -20, 0, 8)
+        sliderBg.Position = UDim2.new(0, 10, 0, 31)
         sliderBg.BackgroundColor3 = STYLE.SidebarColor
         sliderBg.ZIndex = 6
         sliderBg.Parent = sliderFrame
@@ -578,21 +565,23 @@ function Hub:AddTab(tabName)
             if callback then callback(val) end
         end
 
-        sliderBg.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local function startSlide(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 isSliding = true
                 updateSlider(input)
             end
-        end)
+        end
+
+        sliderBg.InputBegan:Connect(startSlide)
 
         UserInputService.InputChanged:Connect(function(input)
-            if isSliding and input.UserInputType == Enum.UserInputType.MouseMovement then
+            if isSliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                 updateSlider(input)
             end
         end)
 
         UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 isSliding = false
             end
         end)
@@ -699,9 +688,7 @@ function Hub:AddTab(tabName)
         Instance.new("UICorner", textBox).CornerRadius = CORNER_RADIUS
 
         textBox.FocusLost:Connect(function(enterPressed)
-            if enterPressed and callback then
-                callback(textBox.Text)
-            end
+            if callback then callback(textBox.Text) end
         end)
     end
 
