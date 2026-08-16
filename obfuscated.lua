@@ -1,5 +1,5 @@
 -- ==========================================
--- 黑橘科技風 Hub UI (手機/觸控雙平台 + 圖片圓角修復版)
+-- 黑橘科技風 Hub UI (手機觸控+圖片圓角 徹底修復版)
 -- ==========================================
 
 local TweenService = game:GetService("TweenService")
@@ -41,6 +41,7 @@ function Hub.new(hubName, iconId)
     gui.ResetOnSpawn = false
     gui.Parent = parentContainer
     
+    -- 主視窗 (開啟 ClipsDescendants 以確保圓角能正確裁切內部圖片)
     local main = Instance.new("Frame")
     main.Name = "MainFrame"
     main.Size = UDim2.new(0, 480, 0, 320)
@@ -52,8 +53,9 @@ function Hub.new(hubName, iconId)
     main.Visible = true
     main.Parent = gui
     
-    local mainCorner = Instance.new("UICorner", main)
+    local mainCorner = Instance.new("UICorner")
     mainCorner.CornerRadius = CORNER_RADIUS
+    mainCorner.Parent = main
     
     local mainStroke = Instance.new("UIStroke")
     mainStroke.Color = STYLE.AccentColor
@@ -61,7 +63,15 @@ function Hub.new(hubName, iconId)
     mainStroke.Transparency = 1
     mainStroke.Parent = main
 
-    -- 背景圖片 (新增圓角)
+    -- 背景圖片 (由外層 main.ClipsDescendants 自動裁切圓角)
+    local bgImageFrame = Instance.new("Frame")
+    bgImageFrame.Name = "BgImageContainer"
+    bgImageFrame.Size = UDim2.new(1, 0, 1, 0)
+    bgImageFrame.BackgroundTransparency = 1
+    bgImageFrame.ClipsDescendants = true
+    bgImageFrame.ZIndex = 1
+    bgImageFrame.Parent = main
+
     local bgImage = Instance.new("ImageLabel")
     bgImage.Name = "BgImage"
     bgImage.Size = UDim2.new(1, 0, 1, 0)
@@ -70,8 +80,10 @@ function Hub.new(hubName, iconId)
     bgImage.BackgroundTransparency = 1
     bgImage.ImageTransparency = 1
     bgImage.ZIndex = 1
-    bgImage.Parent = main
-    Instance.new("UICorner", bgImage).CornerRadius = CORNER_RADIUS
+    bgImage.Parent = bgImageFrame
+    local bgCorner = Instance.new("UICorner")
+    bgCorner.CornerRadius = CORNER_RADIUS
+    bgCorner.Parent = bgImage
 
     local introContainer = Instance.new("Frame")
     introContainer.Size = UDim2.new(1, 0, 1, 0)
@@ -79,16 +91,25 @@ function Hub.new(hubName, iconId)
     introContainer.ZIndex = 20
     introContainer.Parent = main
 
-    -- 動畫圖標 (新增圓角)
+    -- 載入動畫圖標 (帶圓角)
+    local introIconFrame = Instance.new("Frame")
+    introIconFrame.Size = UDim2.new(0, 50, 0, 50)
+    introIconFrame.Position = UDim2.new(0.5, -25, 0.38, -25)
+    introIconFrame.BackgroundTransparency = 1
+    introIconFrame.ClipsDescendants = true
+    introIconFrame.ZIndex = 21
+    introIconFrame.Parent = introContainer
+
     local introIcon = Instance.new("ImageLabel")
-    introIcon.Size = UDim2.new(0, 50, 0, 50)
-    introIcon.Position = UDim2.new(0.5, -25, 0.38, -25)
+    introIcon.Size = UDim2.new(1, 0, 1, 0)
     introIcon.BackgroundTransparency = 1
     introIcon.Image = self.IconAsset
     introIcon.ImageTransparency = 1
     introIcon.ZIndex = 21
-    introIcon.Parent = introContainer
-    Instance.new("UICorner", introIcon).CornerRadius = CORNER_RADIUS
+    introIcon.Parent = introIconFrame
+    local introCorner = Instance.new("UICorner")
+    introCorner.CornerRadius = CORNER_RADIUS
+    introCorner.Parent = introIcon
 
     local introTitle = Instance.new("TextLabel")
     introTitle.Size = UDim2.new(1, 0, 0, 25)
@@ -168,7 +189,7 @@ function Hub.new(hubName, iconId)
         end
     end)
 
-    -- 最小化按鈕圖標 (確保圓角)
+    -- 最小化圓角按鈕
     local miniIcon = Instance.new("ImageButton")
     miniIcon.Size = UDim2.new(1, 0, 1, 0)
     miniIcon.BackgroundTransparency = 1
@@ -177,7 +198,9 @@ function Hub.new(hubName, iconId)
     miniIcon.Visible = false
     miniIcon.ZIndex = 10
     miniIcon.Parent = main
-    Instance.new("UICorner", miniIcon).CornerRadius = CORNER_RADIUS
+    local miniCorner = Instance.new("UICorner")
+    miniCorner.CornerRadius = CORNER_RADIUS
+    miniCorner.Parent = miniIcon
 
     local topBar = Instance.new("Frame")
     topBar.Size = UDim2.new(1, 0, 0, 40)
@@ -290,7 +313,7 @@ function Hub.new(hubName, iconId)
             topBar.Visible = false
             sidebar.Visible = false
             contentArea.Visible = false
-            bgImage.Visible = false
+            bgImageFrame.Visible = false
             particleContainer.Visible = false
             miniIcon.Visible = true
             miniIcon.ImageTransparency = 0
@@ -308,7 +331,7 @@ function Hub.new(hubName, iconId)
             topBar.Visible = true
             sidebar.Visible = true
             contentArea.Visible = true
-            bgImage.Visible = true
+            bgImageFrame.Visible = true
             particleContainer.Visible = true
 
             TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
@@ -326,35 +349,44 @@ function Hub.new(hubName, iconId)
     minBtn.MouseButton1Click:Connect(toggleMinimize)
     miniIcon.MouseButton1Click:Connect(toggleMinimize)
 
-    -- 通用拖拽機制
-    local dragging, dragStart, startPos
-    local function bindDrag(targetFrame)
-        targetFrame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                dragStart = input.Position
-                startPos = main.Position
-            end
-        end)
+    -- ==========================================
+    -- 重構：全平臺視窗拖動邏輯 (Mouse + Touch)
+    -- ==========================================
+    local isDraggingUI = false
+    local activeTouchObject = nil
+    local dragStartPos = nil
+    local frameStartPos = nil
+
+    local function startDragUI(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDraggingUI = true
+            activeTouchObject = input
+            dragStartPos = input.Position
+            frameStartPos = main.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    isDraggingUI = false
+                    activeTouchObject = nil
+                end
+            end)
+        end
     end
 
-    bindDrag(topBar)
-    bindDrag(miniIcon)
+    topBar.InputBegan:Connect(startDragUI)
+    miniIcon.InputBegan:Connect(startDragUI)
 
     UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        if isDraggingUI and (input == activeTouchObject or input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStartPos
+            main.Position = UDim2.new(
+                frameStartPos.X.Scale, 
+                frameStartPos.X.Offset + delta.X, 
+                frameStartPos.Y.Scale, 
+                frameStartPos.Y.Offset + delta.Y
+            )
         end
     end)
-
-    local function stopDrag(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end
-
-    UserInputService.InputEnded:Connect(stopDrag)
 
     return self
 end
@@ -410,7 +442,7 @@ function Hub:AddTab(tabName)
     tabObj.Page = page
     tabObj.Button = tabBtn
     
-    -- 1. 分區標題 (Section)
+    -- Section
     function tabObj:AddSection(text)
         local secFrame = Instance.new("Frame")
         secFrame.Size = UDim2.new(1, 0, 0, 20)
@@ -430,7 +462,7 @@ function Hub:AddTab(tabName)
         secLabel.Parent = secFrame
     end
 
-    -- 2. 普通按鈕 (Button)
+    -- Button
     function tabObj:AddButton(text, callback)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(1, 0, 0, 36)
@@ -450,7 +482,7 @@ function Hub:AddTab(tabName)
         end)
     end
 
-    -- 3. 開關 (Toggle)
+    -- Toggle
     function tabObj:AddToggle(text, defaultState, callback)
         local state = defaultState or false
         
@@ -504,7 +536,9 @@ function Hub:AddTab(tabName)
         end)
     end
 
-    -- 4. 滑桿 (Slider)
+    -- ==========================================
+    -- 重構：全平臺 Slider 手勢拖拽 (Mouse + Touch)
+    -- ==========================================
     function tabObj:AddSlider(text, min, max, defaultVal, callback)
         min = min or 0
         max = max or 100
@@ -541,8 +575,8 @@ function Hub:AddTab(tabName)
         valLabel.Parent = sliderFrame
 
         local sliderBg = Instance.new("Frame")
-        sliderBg.Size = UDim2.new(1, -20, 0, 8)
-        sliderBg.Position = UDim2.new(0, 10, 0, 31)
+        sliderBg.Size = UDim2.new(1, -20, 0, 12)
+        sliderBg.Position = UDim2.new(0, 10, 0, 30)
         sliderBg.BackgroundColor3 = STYLE.SidebarColor
         sliderBg.ZIndex = 6
         sliderBg.Parent = sliderFrame
@@ -555,9 +589,20 @@ function Hub:AddTab(tabName)
         sliderFill.Parent = sliderBg
         Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
 
+        -- 隱藏可點擊/觸控覆蓋區 (放大觸控點擊範圍)
+        local touchZone = Instance.new("TextButton")
+        touchZone.Size = UDim2.new(1, 10, 1, 10)
+        touchZone.Position = UDim2.new(0, -5, 0, -5)
+        touchZone.BackgroundTransparency = 1
+        touchZone.Text = ""
+        touchZone.ZIndex = 8
+        touchZone.Parent = sliderBg
+
         local isSliding = false
-        local function updateSlider(input)
-            local posX = math.clamp(input.Position.X - sliderBg.AbsolutePosition.X, 0, sliderBg.AbsoluteSize.X)
+        local activeSliderTouch = nil
+
+        local function updateValue(inputPos)
+            local posX = math.clamp(inputPos.X - sliderBg.AbsolutePosition.X, 0, sliderBg.AbsoluteSize.X)
             local percent = posX / sliderBg.AbsoluteSize.X
             local val = math.floor(min + (max - min) * percent)
             sliderFill.Size = UDim2.new(percent, 0, 1, 0)
@@ -568,26 +613,30 @@ function Hub:AddTab(tabName)
         local function startSlide(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 isSliding = true
-                updateSlider(input)
+                activeSliderTouch = input
+                page.ScrollingEnabled = false -- 拖曳滑桿時，暫停頁面滾動防止手機手勢衝突
+                updateValue(input.Position)
+
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        isSliding = false
+                        activeSliderTouch = nil
+                        page.ScrollingEnabled = true -- 恢復頁面滾動
+                    end
+                end)
             end
         end
 
-        sliderBg.InputBegan:Connect(startSlide)
+        touchZone.InputBegan:Connect(startSlide)
 
         UserInputService.InputChanged:Connect(function(input)
-            if isSliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                updateSlider(input)
-            end
-        end)
-
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                isSliding = false
+            if isSliding and (input == activeSliderTouch or input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                updateValue(input.Position)
             end
         end)
     end
 
-    -- 5. 下拉選單 (Dropdown)
+    -- Dropdown
     function tabObj:AddDropdown(text, options, defaultSelected, callback)
         options = options or {}
         local selected = defaultSelected or options[1] or "Select..."
@@ -652,7 +701,7 @@ function Hub:AddTab(tabName)
         end)
     end
 
-    -- 6. 輸入框 (Textbox)
+    -- Textbox
     function tabObj:AddTextbox(text, placeholder, callback)
         local boxFrame = Instance.new("Frame")
         boxFrame.Size = UDim2.new(1, 0, 0, 36)
