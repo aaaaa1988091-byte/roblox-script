@@ -1,5 +1,5 @@
 -- ==========================================
--- 黑橘科技風 Hub UI (全控制元件支援版)
+-- 黑橘科技風 Hub UI (已移除調色盤)
 -- ==========================================
 
 local TweenService = game:GetService("TweenService")
@@ -365,17 +365,6 @@ function Hub.new(hubName, iconId)
     return self
 end
 
-function Hub:SetThemeColor(newColor)
-    STYLE.AccentColor = newColor
-    self.MainStroke.Color = newColor
-    for _, tab in pairs(self.Tabs) do
-        tab.Page.ScrollBarImageColor3 = newColor
-        if tab.Button.TextColor3 ~= STYLE.SubTextColor then
-            tab.Button.TextColor3 = newColor
-        end
-    end
-end
-
 function Hub:AddTab(tabName)
     local tabObj = {}
     tabObj.Hub = self
@@ -716,133 +705,13 @@ function Hub:AddTab(tabName)
         end)
     end
 
-    -- 7. 客製化調色盤 (ColorPicker)
-    function tabObj:AddCustomColorPicker(title, defaultColor, callback)
-        defaultColor = defaultColor or STYLE.AccentColor
-        local curR = math.floor(defaultColor.R * 255)
-        local curG = math.floor(defaultColor.G * 255)
-        local curB = math.floor(defaultColor.B * 255)
-
-        local pickerFrame = Instance.new("Frame")
-        pickerFrame.Size = UDim2.new(1, 0, 0, 140)
-        pickerFrame.BackgroundColor3 = STYLE.CardColor
-        pickerFrame.BackgroundTransparency = 0.2
-        pickerFrame.ZIndex = 5
-        pickerFrame.Parent = page
-        Instance.new("UICorner", pickerFrame).CornerRadius = CORNER_RADIUS
-
-        local label = Instance.new("TextLabel")
-        label.Text = "  " .. title
-        label.Size = UDim2.new(1, -50, 0, 30)
-        label.Font = Enum.Font.GothamBold
-        label.TextSize = 12
-        label.TextColor3 = STYLE.TextColor
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.BackgroundTransparency = 1
-        label.ZIndex = 6
-        label.Parent = pickerFrame
-
-        local preview = Instance.new("Frame")
-        preview.Size = UDim2.new(0, 24, 0, 24)
-        preview.Position = UDim2.new(1, -34, 0, 4)
-        preview.BackgroundColor3 = Color3.fromRGB(curR, curG, curB)
-        preview.BorderSizePixel = 0
-        preview.ZIndex = 6
-        preview.Parent = pickerFrame
-        Instance.new("UICorner", preview).CornerRadius = CORNER_RADIUS
-
-        local function createColorSlider(name, posY, initialVal, colorChannel)
-            local sliderContainer = Instance.new("Frame")
-            sliderContainer.Size = UDim2.new(1, -20, 0, 25)
-            sliderContainer.Position = UDim2.new(0, 10, 0, posY)
-            sliderContainer.BackgroundTransparency = 1
-            sliderContainer.ZIndex = 6
-            sliderContainer.Parent = pickerFrame
-
-            local channelLabel = Instance.new("TextLabel")
-            channelLabel.Text = name .. ":"
-            channelLabel.Size = UDim2.new(0, 25, 1, 0)
-            channelLabel.Font = Enum.Font.GothamMedium
-            channelLabel.TextSize = 11
-            channelLabel.TextColor3 = STYLE.SubTextColor
-            channelLabel.BackgroundTransparency = 1
-            channelLabel.ZIndex = 6
-            channelLabel.Parent = sliderContainer
-
-            local sliderBg = Instance.new("Frame")
-            sliderBg.Size = UDim2.new(1, -75, 0, 8)
-            sliderBg.Position = UDim2.new(0, 30, 0.5, -4)
-            sliderBg.BackgroundColor3 = STYLE.SidebarColor
-            sliderBg.ZIndex = 6
-            sliderBg.Parent = sliderContainer
-            Instance.new("UICorner", sliderBg).CornerRadius = UDim.new(1, 0)
-
-            local sliderFill = Instance.new("Frame")
-            sliderFill.Size = UDim2.new(initialVal / 255, 0, 1, 0)
-            sliderFill.BackgroundColor3 = colorChannel
-            sliderFill.ZIndex = 7
-            sliderFill.Parent = sliderBg
-            Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
-
-            local valLabel = Instance.new("TextLabel")
-            valLabel.Text = tostring(initialVal)
-            valLabel.Size = UDim2.new(0, 35, 1, 0)
-            valLabel.Position = UDim2.new(1, -38, 0, 0)
-            valLabel.Font = Enum.Font.Gotham
-            valLabel.TextSize = 11
-            valLabel.TextColor3 = STYLE.TextColor
-            valLabel.BackgroundTransparency = 1
-            valLabel.ZIndex = 6
-            valLabel.Parent = sliderContainer
-
-            local isSliding = false
-            local function updateValue(input)
-                local posX = math.clamp(input.Position.X - sliderBg.AbsolutePosition.X, 0, sliderBg.AbsoluteSize.X)
-                local val = math.floor((posX / sliderBg.AbsoluteSize.X) * 255)
-                sliderFill.Size = UDim2.new(val / 255, 0, 1, 0)
-                valLabel.Text = tostring(val)
-
-                if name == "R" then curR = val
-                elseif name == "G" then curG = val
-                elseif name == "B" then curB = val end
-
-                local newColor = Color3.fromRGB(curR, curG, curB)
-                preview.BackgroundColor3 = newColor
-                if callback then callback(newColor) end
-            end
-
-            sliderBg.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    isSliding = true
-                    updateValue(input)
-                end
-            end)
-
-            UserInputService.InputChanged:Connect(function(input)
-                if isSliding and input.UserInputType == Enum.UserInputType.MouseMovement then
-                    updateValue(input)
-                end
-            end)
-
-            UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    isSliding = false
-                end
-            end)
-        end
-
-        createColorSlider("R", 32, curR, Color3.fromRGB(255, 80, 80))
-        createColorSlider("G", 65, curG, Color3.fromRGB(80, 255, 80))
-        createColorSlider("B", 98, curB, Color3.fromRGB(80, 80, 255))
-    end
-    
     table.insert(self.Tabs, tabObj)
     if #self.Tabs == 1 then selectTab() end
     return tabObj
 end
 
 --------------------------------------------------
--- 全功能自動建構器 (BuildFromConfig)
+-- 自動建構器 (BuildFromConfig)
 --------------------------------------------------
 function Hub:BuildFromConfig(configTable)
     for _, tabData in ipairs(configTable) do
@@ -863,8 +732,6 @@ function Hub:BuildFromConfig(configTable)
                     newTab:AddDropdown(elem.Title or "Dropdown", elem.Options, elem.Default, elem.Callback)
                 elseif elem.Type == "Textbox" then
                     newTab:AddTextbox(elem.Title or "Textbox", elem.Placeholder, elem.Callback)
-                elseif elem.Type == "ColorPicker" then
-                    newTab:AddCustomColorPicker(elem.Title or "Color", elem.Default or STYLE.AccentColor, elem.Callback)
                 end
             end
         end
